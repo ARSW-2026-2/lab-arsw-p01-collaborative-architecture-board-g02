@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="edu.eci.arsw.collabboard.application.service.BoardApplicationServiceTest" time="0.215" tests="2" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="edu.eci.arsw.collabboard.infrastructure.web.rest.BoardRestControllerTest" time="6.717" tests="1" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -10,6 +10,7 @@
     <property name="user.variant" value=""/>
     <property name="java.vendor.url" value="https://java.oracle.com/"/>
     <property name="user.timezone" value="America/Bogota"/>
+    <property name="org.jboss.logging.provider" value="slf4j"/>
     <property name="os.name" value="Windows 11"/>
     <property name="java.vm.specification.version" value="21"/>
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
@@ -30,6 +31,8 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="FILE_LOG_CHARSET" value="UTF-8"/>
+    <property name="java.awt.headless" value="true"/>
     <property name="surefire.real.class.path" value="C:\Users\crist\AppData\Local\Temp\surefire2659669598723270818\surefirebooter-20260904160159091_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
@@ -48,7 +51,9 @@
     <property name="user.dir" value="C:\Users\crist\Downloads\lab-arsw-p01-collaborative-architecture-board-g02"/>
     <property name="os.arch" value="amd64"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="PID" value="33712"/>
     <property name="sun.os.patch.level" value=""/>
+    <property name="CONSOLE_LOG_CHARSET" value="UTF-8"/>
     <property name="native.encoding" value="Cp1252"/>
     <property name="java.library.path" value="C:\Program Files\Java\jdk-21\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;c:\Users\crist\AppData\Roaming\Code\User\globalStorage\github.copilot-chat\debugCommand;c:\Users\crist\AppData\Roaming\Code\User\globalStorage\github.copilot-chat\copilotCli;C:\Program Files\Java\jdk-21\bin;C:\Archivos de programa\Java\jdk-21\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\app\crist\product\21c\dbhomeXE\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\dotnet\;C:\Program Files\Git\cmd;C:\Program Files\apache-maven-3.9.12\bin;C:\Program Files\mingw64\bin;C:\Program Files\nodejs\;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files\PuTTY\;C:\Users\crist\AppData\Local\Microsoft\WindowsApps;C:\Users\crist\AppData\Local\Programs\Microsoft VS Code\bin;C:\Program Files\mingw64;C:\Users\crist\AppData\Roaming\npm;c:\Users\crist\.vscode\extensions\vscjava.vscode-java-debug-0.59.0\bundled\scripts\noConfigScripts;."/>
     <property name="java.vm.info" value="mixed mode, sharing"/>
@@ -58,6 +63,32 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="shouldCreateAndReadBoard" classname="edu.eci.arsw.collabboard.application.service.BoardApplicationServiceTest" time="0.163"/>
-  <testcase name="shouldFailWithConcreteExceptionWhenBoardDoesNotExist" classname="edu.eci.arsw.collabboard.application.service.BoardApplicationServiceTest" time="0.004"/>
+  <testcase name="getBoard_WhenBoardDoesNotExist_ShouldReturn404AndUniformApiError" classname="edu.eci.arsw.collabboard.infrastructure.web.rest.BoardRestControllerTest" time="0.571">
+    <system-out><![CDATA[16:02:01.146 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [edu.eci.arsw.collabboard.infrastructure.web.rest.BoardRestControllerTest]: BoardRestControllerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:02:01.517 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration edu.eci.arsw.collabboard.CollaborativeBoardApplication for test class edu.eci.arsw.collabboard.infrastructure.web.rest.BoardRestControllerTest
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.5)
+
+2026-09-04T16:02:02.345-05:00  INFO 33712 --- [           main] e.e.a.c.i.w.r.BoardRestControllerTest    : Starting BoardRestControllerTest using Java 21.0.8 with PID 33712 (started by crist in C:\Users\crist\Downloads\lab-arsw-p01-collaborative-architecture-board-g02)
+2026-09-04T16:02:02.349-05:00  INFO 33712 --- [           main] e.e.a.c.i.w.r.BoardRestControllerTest    : No active profile set, falling back to 1 default profile: "default"
+2026-09-04T16:02:05.863-05:00  INFO 33712 --- [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-09-04T16:02:06.821-05:00  INFO 33712 --- [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-09-04T16:02:06.822-05:00  INFO 33712 --- [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-04T16:02:06.830-05:00  INFO 33712 --- [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 4 ms
+2026-09-04T16:02:06.919-05:00  INFO 33712 --- [           main] e.e.a.c.i.w.r.BoardRestControllerTest    : Started BoardRestControllerTest in 5.292 seconds (process running for 7.599)
+]]></system-out>
+    <system-err><![CDATA[Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+WARNING: A Java agent has been loaded dynamically (C:\Users\crist\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.7\byte-buddy-agent-1.17.7.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+]]></system-err>
+  </testcase>
 </testsuite>

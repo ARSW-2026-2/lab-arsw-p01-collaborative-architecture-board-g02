@@ -1,6 +1,7 @@
 package edu.eci.arsw.collabboard.application.service;
 
 import edu.eci.arsw.collabboard.application.port.out.BoardRepository;
+import edu.eci.arsw.collabboard.application.exception.BoardNotFoundException;
 import edu.eci.arsw.collabboard.domain.model.Board;
 import edu.eci.arsw.collabboard.domain.model.BoardElement;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class BoardApplicationService {
         if (boardId == null || boardId.isEmpty()) {
             throw new IllegalArgumentException("Board ID cannot be null or empty");
         }
-        return repository.findById(boardId).orElseThrow(() -> new IllegalArgumentException("Board not found"));
+        return repository.findById(boardId).orElseThrow(() -> new BoardNotFoundException("Board not found"));
     }
 
     public Board replaceBoard(String boardId, String name, List<BoardElement> elements) {
@@ -46,7 +47,7 @@ public class BoardApplicationService {
             throw new IllegalArgumentException("Board ID cannot be null or empty");
         }
         if (!repository.existsById(boardId)) {
-            throw new IllegalArgumentException("Board not found");
+            throw new BoardNotFoundException("Board not found");
         }
         Board boardToSave = new  Board(boardId, name, elements);
         return repository.save(boardToSave);
