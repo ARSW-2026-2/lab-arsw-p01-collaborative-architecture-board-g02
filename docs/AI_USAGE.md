@@ -4,8 +4,6 @@ Declaring AI use does not reduce the grade. You must be able to explain and vali
 
 | Tool | Activity | Prompt / purpose | How I validated the result | What I changed / rejected |
 |---|---|---|---|---|
-| | | | | |
-
-If no AI tool was used, state it explicitly below:
-
-> TODO
+| **ChatGPT** | Consultas de datos y traducción. | Solicité explicaciones sobre conceptos de arquitectura (DIP) y traducción de los mensajes del repositorio al inglés. *(Mejor para: Tareas de lenguaje natural, explicaciones teóricas y traducciones).* | Revisé que los mensajes en inglés fueran precisos y que la teoría arquitectónica coincidiera con los conceptos del taller. | Modifiqué las traducciones para ajustarlas estrictamente al formato *conventional commits* exigido en el repositorio. |
+| **Claude** | Generación de código para comparación. | Pedí una implementación estructurada de las interfaces del dominio para compararla con el código provisto en el *Starter*. *(Mejor para: Análisis profundo de contexto, lectura de clases interconectadas y evaluación de lógica compleja).* | Comparé las relaciones de dependencia sugeridas con la estructura obligatoria de puertos y adaptadores del Lab 04. | Rechacé las implementaciones con frameworks de bases de datos externos y conservé la estructura en memoria. |
+| **Gemini** | Comprensión y diagramas (ArchiMate). | Solicité la generación del código PlantUML para la vista de aplicación y comandos exactos de Git. *(Mejor para: Respuestas operativas concretas, generación de sintaxis para diagramas estructurados y resolución de errores de entorno).* | Importé el código en Draw.io y verifiqué visualmente que las flechas de dependencia cumplieran las reglas arquitectónicas. | Ajusté los estilos visuales generados para que encajaran con las convenciones estándar de ArchiMate. |
