@@ -1,2 +1,2 @@
-edu\eci\arsw\collabboard\infrastructure\web\rest\BoardRestControllerTest.class
-edu\eci\arsw\collabboard\application\service\BoardApplicationServiceTest.class
+edu/eci/arsw/collabboard/application/service/BoardApplicationServiceTest.class
+edu/eci/arsw/collabboard/infrastructure/web/rest/BoardRestControllerTest.class
