@@ -3,11 +3,18 @@ import { BoardState } from '../state/board-state.js';
 // Obligatory Namespace for SVG elements:
 const SVG_NS = "http://www.w3.org/2000/svg";
 let svgContainer = null;
+let isDragging = false;
+let draggedElementId = null;
+let dragOffset = { x: 0, y: 0 };
+let connectorSourceId = null;
 
 export const BoardView = {
-    
+
     initialize(svgElementId) {
         svgContainer = document.getElementById(svgElementId);
+        if (svgContainer) {
+            this.setupInteractions();
+        }
     },
 
     render() {
@@ -104,5 +111,106 @@ export const BoardView = {
         line.setAttribute('stroke-width', '4');
         line.setAttribute('stroke-linecap', 'round'); 
         return line;
+    },
+
+    setupInteractions() {
+
+        svgContainer.addEventListener('pointerdown', (e) => {
+            const target = e.target;
+            const mode = BoardState.getInteractionMode();
+
+
+            if (target === svgContainer) {
+                if (mode === 'ADD_RECTANGLE' || mode === 'ADD_TEXT') {
+
+                    const rect = svgContainer.getBoundingClientRect();
+                    const newElement = {
+                        id: crypto.randomUUID(),
+                        type: mode === 'ADD_RECTANGLE' ? 'RECTANGLE' : 'TEXT',
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top,
+                        width: 120,
+                        height: 60,
+                        text: mode === 'ADD_TEXT' ? 'Texto' : null
+                    };
+
+                    BoardState.addElement(newElement);
+                    this.render();
+                } else {
+
+                    BoardState.setSelectedElementId(null);
+                    connectorSourceId = null;
+                    this.render();
+                }
+                return;
+            }
+
+
+            const elementId = target.getAttribute('id');
+            if (elementId && target.classList.contains('board-element')) {
+                if (mode === 'SELECT') {
+
+                    BoardState.setSelectedElementId(elementId);
+                    isDragging = true;
+                    draggedElementId = elementId;
+
+                    // Calcular offset para un drag suave
+                    const el = BoardState.getBoard().elements.find(e => e.id === elementId);
+                    if (el) {
+                        dragOffset.x = e.clientX - el.x;
+                        dragOffset.y = e.clientY - el.y;
+                    }
+                    this.render();
+
+                } else if (mode === 'ADD_CONNECTOR') {
+                    if (!connectorSourceId) {
+                        connectorSourceId = elementId;
+                        BoardState.setSelectedElementId(elementId);
+                        this.render();
+                    } else if (connectorSourceId !== elementId) {
+                        const newConnector = {
+                            id: crypto.randomUUID(),
+                            type: 'CONNECTOR',
+                            sourceId: connectorSourceId,
+                            targetId: elementId
+                        };
+                        BoardState.addElement(newConnector);
+                        connectorSourceId = null;
+                        BoardState.setSelectedElementId(null);
+                        this.render();
+                    }
+                }
+            }
+        });
+
+        svgContainer.addEventListener('pointermove', (e) => {
+            if (!isDragging || !draggedElementId) return;
+
+            const mode = BoardState.getInteractionMode();
+            if (mode === 'SELECT') {
+                const newX = e.clientX - dragOffset.x;
+                const newY = e.clientY - dragOffset.y;
+                BoardState.updateElementPosition(draggedElementId, newX, newY);
+                this.render();
+            }
+        });
+
+        svgContainer.addEventListener('pointerup', () => {
+            isDragging = false;
+            draggedElementId = null;
+        });
+
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    const selectedId = BoardState.getSelectedElementId();
+                    if (selectedId) {
+                        BoardState.removeElement(selectedId);
+                        this.render();
+                    }
+                }
+            }
+        });
     }
 };
