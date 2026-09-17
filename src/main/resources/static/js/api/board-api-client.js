@@ -1,27 +1,53 @@
-export class BoardApiError extends Error {
-  constructor(status, code, message){ super(message); this.status=status; this.code=code; }
-}
+const API_BASE_URL = '/api/boards';
 
-async function parse(response){
-  const payload = await response.json().catch(() => null);
-  if(!response.ok){ throw new BoardApiError(response.status, payload?.code ?? 'HTTP_ERROR', payload?.message ?? `HTTP ${response.status}`); }
-  return payload;
+/**
+ * Centralized function for handling fetch responses 
+ * and throwing controlled errors.
+ */
+async function handleResponse(response) {
+  if (!response.ok) {
+    let errorMessage = `Error HTTP: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
+    } catch (e) {
+      //If the response is not JSON, we can ignore this error and use the default message.
+    }
+    throw new Error(`[${response.status}] ${errorMessage}`);
+  }
+
+  //If the response is 204 No Content, we return the parsed JSON data.
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
 }
 
 export const BoardApiClient = {
-  async create(name){
-    // TODO LAB-05: keep HTTP details in this module only.
-    const response = await fetch('/api/boards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
-    return parse(response);
-  },
-  async load(id){
-    // TODO LAB-05: validate id and translate non-2xx responses consistently.
-    const response = await fetch(`/api/boards/${encodeURIComponent(id)}`);
-    return parse(response);
-  },
-  async save(board){
-    // TODO LAB-05: PUT the complete board state; do not invent /move or /draw endpoints.
-    const response = await fetch(`/api/boards/${encodeURIComponent(board.id)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:board.name,elements:board.elements})});
-    return parse(response);
-  }
+  async getBoard(boardId) {
+        const response = await fetch(`${API_BASE_URL}/${boardId}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        return handleResponse(response);
+    },
+
+  async createBoard(name = "Nuevo Tablero") {
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name })
+        });
+        return handleResponse(response);
+    },
+
+    async updateBoard(boardId, name) {
+        const response = await fetch(`${API_BASE_URL}/${boardId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name })
+        });
+        return handleResponse(response);
+    }
 };
