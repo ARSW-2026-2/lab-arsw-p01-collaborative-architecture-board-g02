@@ -1,37 +1,63 @@
-function uid(prefix){ return `${prefix}-${crypto.randomUUID()}`; }
+// Board State Management.
+const state = {
+  board: null,
+    selectedElementId: null,
+    interactionMode: 'SELECT', // Modes: 'SELECT', 'ADD_RECTANGLE', 'ADD_TEXT', 'ADD_CONNECTOR'
+    remoteState: {
+        status: 'IDLE', // States: 'IDLE', 'LOADING', 'SUCCESS', 'ERROR'
+        message: ''
+    }
+};
 
-export function createBoardState(){
-  let board={id:null,name:'Architecture Board',elements:[]};
-  let selectedId=null;
-  let connectSourceId=null;
-  let remote={status:'idle',lastAction:null,error:null};
+export const BoardState = {
+    //Getters:
+    getBoard: () => state.board,
+    getSelectedElementId: () => state.selectedElementId,
+    getInteractionMode: () => state.interactionMode,
+    getRemoteState: () => state.remoteState,
 
-  return {
-    snapshot(){ return structuredClone({board,selectedId,connectSourceId,remote}); },
-    setBoard(next){ board=structuredClone(next); selectedId=null; connectSourceId=null; },
-    setName(name){ board={...board,name}; },
-    select(id){ selectedId=id; },
-    setRemote(status,lastAction=null,error=null){ remote={status,lastAction,error}; },
-    addRectangle(){
-      const e={id:uid('rect'),type:'RECTANGLE',x:100+board.elements.length*12,y:90+board.elements.length*12,width:170,height:70,text:'Component',sourceId:null,targetId:null};
-      board={...board,elements:[...board.elements,e]}; selectedId=e.id; return e;
+  //Setters:
+    setBoard: (boardData) => { 
+        state.board = boardData; 
     },
-    addText(){
-      const e={id:uid('text'),type:'TEXT',x:120,y:210,width:150,height:30,text:'Text',sourceId:null,targetId:null};
-      board={...board,elements:[...board.elements,e]}; selectedId=e.id; return e;
+    
+    setSelectedElementId: (id) => { 
+        state.selectedElementId = id; 
     },
-    moveSelected(x,y){
-      // TODO LAB-05: update the selected non-connector immutably.
-      board={...board,elements:board.elements.map(e=>e.id===selectedId && e.type!=='CONNECTOR'?{...e,x,y}:e)};
+    
+    setInteractionMode: (mode) => { 
+        state.interactionMode = mode; 
+        // Reset selected element when changing interaction mode.
+        state.selectedElementId = null; 
     },
-    beginConnect(){ if(selectedId) connectSourceId=selectedId; },
-    completeConnect(targetId){
-      // TODO LAB-05: create connector only when source/target are valid and different.
-      if(!connectSourceId || !targetId || connectSourceId===targetId) return null;
-      const e={id:uid('conn'),type:'CONNECTOR',x:0,y:0,width:0,height:0,text:'',sourceId:connectSourceId,targetId};
-      board={...board,elements:[...board.elements,e]}; connectSourceId=null; selectedId=e.id; return e;
+    
+    setRemoteState: (status, message = '') => { 
+        state.remoteState = { status, message }; 
     },
-    removeSelected(){ if(!selectedId) return; const removed=selectedId; board={...board,elements:board.elements.filter(e=>e.id!==removed && e.sourceId!==removed && e.targetId!==removed)}; selectedId=null; },
-    toPersistedBoard(){ return structuredClone(board); }
-  };
-}
+
+    //Pures Operations:
+    addElement: (element) => {
+        if (state.board) {
+            state.board.elements.push(element);
+        }
+    },
+
+    removeElement: (elementId) => {
+        if (state.board) {
+            state.board.elements = state.board.elements.filter(e => e.id !== elementId);
+            if (state.selectedElementId === elementId) {
+                state.selectedElementId = null;
+            }
+        }
+    },
+
+    updateElementPosition: (elementId, newX, newY) => {
+        if (state.board) {
+            const el = state.board.elements.find(e => e.id === elementId);
+            if (el && el.type !== 'CONNECTOR') { //The connectors do not move on their own.
+                el.x = newX;
+                el.y = newY;
+            }
+        }
+    }
+};
