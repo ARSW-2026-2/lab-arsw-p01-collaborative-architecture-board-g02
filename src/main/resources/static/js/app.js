@@ -8,14 +8,38 @@ const $=id=>document.getElementById(id);
 let connecting=false;
 
 function refresh(message=''){
-  const s=state.snapshot(); view.render(s); $('remoteStatus').textContent=s.remote.status; $('message').textContent=message || s.remote.error?.message || ''; $('retryBtn').hidden=!s.remote.lastAction || s.remote.status!=='error'; $('boardId').value=s.board.id??$('boardId').value; $('boardName').value=s.board.name;
+    const s=state.snapshot();
+    view.render(s);
+    $('remoteStatus').textContent=s.remote.status;
+    $('message').textContent=message || s.remote.error?.message || '';
+    $('retryBtn').hidden=!s.remote.lastAction || s.remote.status!=='error';
+    $('boardId').value=s.board.id??$('boardId').value;
+    $('boardName').value=s.board.name;
+
+    const isLoading = s.remote.status === 'loading';
+    const inputsToLock = ['newBoardBtn', 'loadBtn', 'saveBtn', 'addRectBtn', 'addTextBtn', 'connectBtn', 'deleteBtn', 'boardName', 'boardId'];
+    inputsToLock.forEach(id => $(id).disabled = isLoading);
 }
 
 async function remote(label,action){
-  // TODO LAB-05: prevent incompatible actions while loading/saving and keep retry semantics explicit.
-  state.setRemote('loading',action,null); refresh(`${label}...`);
-  try{ const result=await action(); state.setRemote('success',null,null); refresh(`${label} OK`); return result; }
-  catch(error){ state.setRemote('error',action,error); refresh(); throw error; }
+    if (state.snapshot().remote.status === 'loading') {
+        console.warn('Operación bloqueada: Ya hay una petición de red en curso.');
+        return;
+    }
+
+    state.setRemote('loading',action,null);
+    refresh(`${label}...`);
+    try{
+        const result=await action();
+        state.setRemote('success',null,null);
+        refresh(`${label} OK`);
+        return result;
+    }
+    catch(error){
+        state.setRemote('error',action,error);
+        refresh();
+        throw error;
+    }
 }
 
 view.on({
