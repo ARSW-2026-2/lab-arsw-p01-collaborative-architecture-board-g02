@@ -1,34 +1,108 @@
-const NS='http://www.w3.org/2000/svg';
-function svgEl(name,attrs={}){ const e=document.createElementNS(NS,name); Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v)); return e; }
-function center(e){ return {x:e.x+e.width/2,y:e.y+e.height/2}; }
+import { BoardState } from '../state/board-state.js';
 
-export function createBoardView(canvas){
-  let handlers={select:()=>{},move:()=>{},connectTarget:()=>{}};
-  let drag=null;
+// Obligatory Namespace for SVG elements:
+const SVG_NS = "http://www.w3.org/2000/svg";
+let svgContainer = null;
 
-  function render(snapshot){
-    // TODO LAB-05: keep rendering as a projection of state; do not store business state only in DOM.
-    canvas.replaceChildren();
-    const byId=new Map(snapshot.board.elements.filter(e=>e.type!=='CONNECTOR').map(e=>[e.id,e]));
-    for(const e of snapshot.board.elements.filter(e=>e.type==='CONNECTOR')){
-      const a=byId.get(e.sourceId), b=byId.get(e.targetId); if(!a||!b) continue; const ca=center(a), cb=center(b);
-      canvas.append(svgEl('line',{x1:ca.x,y1:ca.y,x2:cb.x,y2:cb.y,class:`connector ${snapshot.selectedId===e.id?'selected':''}`,'data-id':e.id}));
+export const BoardView = {
+    
+    initialize(svgElementId) {
+        svgContainer = document.getElementById(svgElementId);
+    },
+
+    render() {
+        if (!svgContainer) return;
+        
+        svgContainer.innerHTML = '';
+        
+        const board = BoardState.getBoard();
+        if (!board || !board.elements) return;
+
+        const selectedId = BoardState.getSelectedElementId();
+
+        //First render connectors.
+        board.elements
+            .filter(el => el.type === 'CONNECTOR')
+            .forEach(conn => {
+                const line = this.createConnectorNode(conn, board.elements);
+                if (line) svgContainer.appendChild(line);
+            });
+
+        //Second render rectangles and texts on top of connectors.
+        board.elements
+            .filter(el => el.type !== 'CONNECTOR')
+            .forEach(el => {
+                let node;
+                if (el.type === 'RECTANGLE') {
+                    node = this.createRectangleNode(el, selectedId === el.id);
+                } else if (el.type === 'TEXT') {
+                    node = this.createTextNode(el, selectedId === el.id);
+                }
+                
+                if (node) {
+                    svgContainer.appendChild(node);
+                }
+            });
+    },
+
+    // Auxiliar Functions.
+    createRectangleNode(element, isSelected) {
+        const rect = document.createElementNS(SVG_NS, 'rect');
+        rect.setAttribute('id', element.id);
+        rect.setAttribute('x', element.x);
+        rect.setAttribute('y', element.y);
+        rect.setAttribute('width', element.width);
+        rect.setAttribute('height', element.height);
+        
+        rect.setAttribute('fill', '#fef08a'); 
+        rect.setAttribute('rx', '16'); // Bordes mucho más curvos y suaves
+        
+        rect.setAttribute('stroke', isSelected ? '#d946ef' : '#fbbf24');
+        rect.setAttribute('stroke-width', isSelected ? '4' : '2');
+        rect.setAttribute('class', 'board-element');
+        
+        rect.style.cursor = 'pointer';
+        return rect;
+    },
+
+    createTextNode(element, isSelected) {
+        const text = document.createElementNS(SVG_NS, 'text');
+        text.setAttribute('id', element.id);
+        text.setAttribute('x', element.x + element.width / 2);
+        text.setAttribute('y', element.y + element.height / 2);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        
+        text.setAttribute('fill', isSelected ? '#d946ef' : '#334155');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('font-family', '"Nunito", "Comic Sans MS", sans-serif'); // Letra más casual
+        text.textContent = element.text || 'Texto';
+        text.setAttribute('class', 'board-element');
+        text.style.pointerEvents = 'none'; // Evita que el texto interfiera con el clic en la tarjeta
+        return text;
+    },
+
+    createConnectorNode(connector, allElements) {
+        const source = allElements.find(e => e.id === connector.sourceId);
+        const target = allElements.find(e => e.id === connector.targetId);
+
+        if (!source || !target) return null;
+
+        const x1 = source.x + (source.width / 2);
+        const y1 = source.y + (source.height / 2);
+        const x2 = target.x + (target.width / 2);
+        const y2 = target.y + (target.height / 2);
+
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('id', connector.id);
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        
+        line.setAttribute('stroke', '#8b5cf6');
+        line.setAttribute('stroke-width', '4');
+        line.setAttribute('stroke-linecap', 'round'); 
+        return line;
     }
-    for(const e of snapshot.board.elements.filter(e=>e.type!=='CONNECTOR')){
-      const g=svgEl('g',{'data-id':e.id,class:'shape'});
-      if(e.type==='RECTANGLE'){ g.append(svgEl('rect',{x:e.x,y:e.y,width:e.width,height:e.height,rx:8,fill:'#e8f0f7',stroke:'#597995',class:snapshot.selectedId===e.id?'selected':''})); const t=svgEl('text',{x:e.x+12,y:e.y+40,class:'label'}); t.textContent=e.text||'Component'; g.append(t); }
-      if(e.type==='TEXT'){ const t=svgEl('text',{x:e.x,y:e.y+20,'font-size':20,fill:'#1d2733',class:`label ${snapshot.selectedId===e.id?'selected':''}`}); t.textContent=e.text||'Text'; g.append(t); }
-      canvas.append(g);
-    }
-  }
-
-  canvas.addEventListener('pointerdown',ev=>{
-    const node=ev.target.closest?.('[data-id]'); if(!node) return; const id=node.dataset.id; handlers.select(id); handlers.connectTarget(id); drag={id,startX:ev.clientX,startY:ev.clientY}; canvas.setPointerCapture(ev.pointerId);
-  });
-  canvas.addEventListener('pointermove',ev=>{
-    if(!drag) return; const pt=canvas.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; const p=pt.matrixTransform(canvas.getScreenCTM().inverse()); handlers.move(drag.id,p.x,p.y);
-  });
-  canvas.addEventListener('pointerup',()=>{drag=null;});
-
-  return {render,on(next){handlers={...handlers,...next};}};
-}
+};
