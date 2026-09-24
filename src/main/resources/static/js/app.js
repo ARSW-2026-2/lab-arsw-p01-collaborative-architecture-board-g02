@@ -1,59 +1,168 @@
-import {BoardApiClient} from './api/board-api-client.js';
-import {createBoardState} from './state/board-state.js';
-import {createBoardView} from './ui/board-view.js';
+import { BoardApiClient } from './api/board-api-client.js';
+import { BoardState } from './state/board-state.js';
+import { BoardView } from './ui/board-view.js';
 
-const state=createBoardState();
-const view=createBoardView(document.querySelector('#boardCanvas'));
-const $=id=>document.getElementById(id);
-let connecting=false;
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+let lastOperation = null;
 
-function refresh(message=''){
-    const s=state.snapshot();
-    view.render(s);
-    $('remoteStatus').textContent=s.remote.status;
-    $('message').textContent=message || s.remote.error?.message || '';
-    $('retryBtn').hidden=!s.remote.lastAction || s.remote.status!=='error';
-    $('boardId').value=s.board.id??$('boardId').value;
-    $('boardName').value=s.board.name;
-
-    const isLoading = s.remote.status === 'loading';
-    const inputsToLock = ['newBoardBtn', 'loadBtn', 'saveBtn', 'addRectBtn', 'addTextBtn', 'connectBtn', 'deleteBtn', 'boardName', 'boardId'];
-    inputsToLock.forEach(id => $(id).disabled = isLoading);
+async function init() {
+    // Conecta con tu lienzo SVG
+    BoardView.initialize('boardCanvas');
+    setupEventListeners();
+    showStatus('Listo para empezar', 'IDLE');
 }
 
-async function remote(label,action){
-    if (state.snapshot().remote.status === 'loading') {
-        console.warn('Operación bloqueada: Ya hay una petición de red en curso.');
-        return;
-    }
+function setupEventListeners() {
+    const svg = document.getElementById('boardCanvas');
 
-    state.setRemote('loading',action,null);
-    refresh(`${label}...`);
-    try{
-        const result=await action();
-        state.setRemote('success',null,null);
-        refresh(`${label} OK`);
-        return result;
-    }
-    catch(error){
-        state.setRemote('error',action,error);
-        refresh();
-        throw error;
+    // 1. CLICS EN EL TABLERO (Seleccionar, Agregar, Conectar)
+    svg.addEventListener('mousedown', (e) => {
+        const target = e.target;
+        const mode = BoardState.getInteractionMode();
+        const rect = svg.getBoundingClientRect();
+        
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (mode === 'SELECT') {
+            if (target.classList.contains('board-element') && target.tagName !== 'line') {
+                const elementId = target.getAttribute('id');
+                BoardState.setSelectedElementId(elementId);
+                
+                const elX = parseFloat(target.getAttribute('x') || 0);
+                const elY = parseFloat(target.getAttribute('y') || 0);
+                dragOffset = { x: x - elX, y: y - elY };
+                isDragging = true;
+            } else {
+                BoardState.setSelectedElementId(null);
+            }
+        } else if (mode === 'ADD_RECTANGLE') {
+            const newId = 'rect-' + Date.now();
+            BoardState.addElement({ id: newId, type: 'RECTANGLE', x: x, y: y, width: 140, height: 80 });
+            BoardState.setInteractionMode('SELECT');
+        } else if (mode === 'ADD_TEXT') {
+            const newId = 'text-' + Date.now();
+            const textValue = prompt("Ingresa el texto de la tarjeta:") || "Nuevo Texto";
+            BoardState.addElement({ id: newId, type: 'TEXT', x: x, y: y, width: 120, height: 40, text: textValue });
+            BoardState.setInteractionMode('SELECT');
+        } else if (mode === 'ADD_CONNECTOR') {
+            const sourceId = BoardState.getSelectedElementId();
+            if (target.classList.contains('board-element') && sourceId) {
+                const targetId = target.getAttribute('id');
+                if (sourceId !== targetId) {
+                    const newId = 'conn-' + Date.now();
+                    BoardState.addElement({ id: newId, type: 'CONNECTOR', sourceId: sourceId, targetId: targetId });
+                    BoardState.setInteractionMode('SELECT');
+                    BoardState.setSelectedElementId(null);
+                }
+            }
+        }
+        BoardView.render();
+    });
+
+    // 2. ARRASTRAR ELEMENTOS
+    svg.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const selectedId = BoardState.getSelectedElementId();
+        if (selectedId) {
+            const rect = svg.getBoundingClientRect();
+            const x = e.clientX - rect.left - dragOffset.x;
+            const y = e.clientY - rect.top - dragOffset.y;
+            BoardState.updateElementPosition(selectedId, x, y);
+            BoardView.render();
+        }
+    });
+
+    svg.addEventListener('mouseup', () => { isDragging = false; });
+    svg.addEventListener('mouseleave', () => { isDragging = false; });
+
+    // 3. BOTONES DE LA BARRA HERRAMIENTAS
+    document.getElementById('addRectBtn').addEventListener('click', () => {
+        BoardState.setInteractionMode('ADD_RECTANGLE');
+        showStatus('Haz clic en el tablero para agregar un Rectángulo', 'INFO');
+    });
+
+    document.getElementById('addTextBtn').addEventListener('click', () => {
+        BoardState.setInteractionMode('ADD_TEXT');
+        showStatus('Haz clic en el tablero para agregar Texto', 'INFO');
+    });
+
+    document.getElementById('connectBtn').addEventListener('click', () => {
+        if (!BoardState.getSelectedElementId()) {
+            alert("Primero selecciona el elemento de origen haciendo clic en él");
+            return;
+        }
+        BoardState.setInteractionMode('ADD_CONNECTOR');
+        showStatus('Ahora haz clic en el elemento destino para conectarlos', 'INFO');
+    });
+
+    document.getElementById('deleteBtn').addEventListener('click', () => {
+        const selectedId = BoardState.getSelectedElementId();
+        if (selectedId) {
+            BoardState.removeElement(selectedId);
+            BoardView.render();
+        }
+    });
+
+    // 4. BOTONES API REST
+    document.getElementById('newBoardBtn').addEventListener('click', async () => {
+        const name = document.getElementById('boardName').value || "Tablero Nuevo";
+        await executeRemoteOperation('CREATE', () => BoardApiClient.createBoard(name));
+    });
+
+    document.getElementById('loadBtn').addEventListener('click', async () => {
+        const id = document.getElementById('boardId').value;
+        if (!id) return alert("Por favor ingresa un ID para cargar");
+        await executeRemoteOperation('LOAD', () => BoardApiClient.getBoard(id));
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const board = BoardState.getBoard();
+        if (!board || !board.id) return alert("Crea o carga un tablero antes de guardar");
+        await executeRemoteOperation('SAVE', () => BoardApiClient.updateBoard(board.id, board));
+    });
+
+    document.getElementById('retryBtn').addEventListener('click', async () => {
+        if (lastOperation) {
+            await executeRemoteOperation(lastOperation.name, lastOperation.func);
+        }
+    });
+}
+
+async function executeRemoteOperation(operationName, apiFunction) {
+    showStatus('Comunicando con el servidor...', 'LOADING');
+    document.getElementById('retryBtn').hidden = true;
+    
+    try {
+        const result = await apiFunction();
+        if (operationName === 'CREATE' || operationName === 'LOAD') {
+            if (result) {
+                if (!result.elements) result.elements = [];
+                BoardState.setBoard(result);
+                document.getElementById('boardId').value = result.id;
+                BoardView.render();
+            }
+        }
+        showStatus(`Operación ${operationName} completada`, 'SUCCESS');
+        lastOperation = null;
+    } catch (error) {
+        showStatus(`Error: ${error.message}`, 'ERROR');
+        lastOperation = { name: operationName, func: apiFunction };
+        document.getElementById('retryBtn').hidden = false;
     }
 }
 
-view.on({
- select(id){ state.select(id); refresh(); },
- move(id,x,y){ state.select(id); state.moveSelected(x,y); refresh(); },
- connectTarget(id){ if(connecting){ state.completeConnect(id); connecting=false; refresh('Connector created locally. Save to persist.'); } }
-});
+function showStatus(message, state) {
+    const remoteBadge = document.getElementById('remoteStatus');
+    const messageText = document.getElementById('message');
+    
+    remoteBadge.textContent = state;
+    messageText.textContent = message;
+    
+    if (state === 'ERROR') remoteBadge.style.backgroundColor = '#ff6b6b';
+    else if (state === 'SUCCESS') remoteBadge.style.backgroundColor = '#20b2aa';
+    else remoteBadge.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+}
 
-$('newBoardBtn').onclick=async()=>{ const b=await remote('Creating',()=>BoardApiClient.create($('boardName').value.trim())); state.setBoard(b); refresh('Board created'); };
-$('loadBtn').onclick=async()=>{ const id=$('boardId').value.trim(); const b=await remote('Loading',()=>BoardApiClient.load(id)); state.setBoard(b); refresh('Board loaded'); };
-$('saveBtn').onclick=async()=>{ state.setName($('boardName').value.trim()); const b=await remote('Saving',()=>BoardApiClient.save(state.toPersistedBoard())); state.setBoard(b); refresh('Board saved'); };
-$('retryBtn').onclick=async()=>{ const action=state.snapshot().remote.lastAction; if(action) await remote('Retrying',action); };
-$('addRectBtn').onclick=()=>{state.addRectangle();refresh('Rectangle added locally');};
-$('addTextBtn').onclick=()=>{state.addText();refresh('Text added locally');};
-$('connectBtn').onclick=()=>{ state.beginConnect(); connecting=true; refresh('Select the target element'); };
-$('deleteBtn').onclick=()=>{state.removeSelected();refresh('Element removed locally');};
-refresh();
+document.addEventListener('DOMContentLoaded', init);
