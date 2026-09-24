@@ -42,11 +42,15 @@ export const BoardApiClient = {
         return handleResponse(response);
     },
 
-    async updateBoard(boardId, name) {
+    async updateBoard(boardId, board) {
+        //El backend espera { name, elements }, no el board completo dentro de "name".
         const response = await fetch(`${API_BASE_URL}/${boardId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({
+                name: board.name,
+                elements: board.elements || []
+            })
         });
         return handleResponse(response);
     }

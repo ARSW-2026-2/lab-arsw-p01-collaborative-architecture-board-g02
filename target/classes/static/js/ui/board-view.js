@@ -17,6 +17,15 @@ export const BoardView = {
         }
     },
 
+    // Limpia arrastre y origen de conector pendientes al cambiar de modo.
+    resetInteractionState() {
+        isDragging = false;
+        draggedElementId = null;
+        connectorSourceId = null;
+        BoardState.setSelectedElementId(null);
+        this.render();
+    },
+
     render() {
         if (!svgContainer) return;
         
@@ -85,7 +94,8 @@ export const BoardView = {
         text.setAttribute('font-family', '"Nunito", "Comic Sans MS", sans-serif'); // Letra más casual
         text.textContent = element.text || 'Texto';
         text.setAttribute('class', 'board-element');
-        text.style.pointerEvents = 'none'; // Evita que el texto interfiera con el clic en la tarjeta
+        text.style.pointerEvents = 'all'; // debe recibir clics para poder seleccionarse/arrastrarse
+        text.style.cursor = 'pointer';
         return text;
     },
 
@@ -124,17 +134,22 @@ export const BoardView = {
                 if (mode === 'ADD_RECTANGLE' || mode === 'ADD_TEXT') {
 
                     const rect = svgContainer.getBoundingClientRect();
+                    const textValue = mode === 'ADD_TEXT'
+                        ? (prompt('Ingresa el texto de la tarjeta:') || 'Texto')
+                        : null;
+
                     const newElement = {
                         id: crypto.randomUUID(),
                         type: mode === 'ADD_RECTANGLE' ? 'RECTANGLE' : 'TEXT',
                         x: e.clientX - rect.left,
                         y: e.clientY - rect.top,
-                        width: 120,
-                        height: 60,
-                        text: mode === 'ADD_TEXT' ? 'Texto' : null
+                        width: mode === 'ADD_RECTANGLE' ? 140 : 120,
+                        height: mode === 'ADD_RECTANGLE' ? 80 : 40,
+                        text: textValue
                     };
 
                     BoardState.addElement(newElement);
+                    BoardState.setInteractionMode('SELECT');
                     this.render();
                 } else {
 
@@ -176,7 +191,7 @@ export const BoardView = {
                         };
                         BoardState.addElement(newConnector);
                         connectorSourceId = null;
-                        BoardState.setSelectedElementId(null);
+                        BoardState.setInteractionMode('SELECT');
                         this.render();
                     }
                 }
