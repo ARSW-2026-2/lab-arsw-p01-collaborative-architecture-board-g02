@@ -1,6 +1,7 @@
 import { BoardApiClient } from './api/board-api-client.js';
 import { BoardState } from './state/board-state.js';
 import { BoardView } from './ui/board-view.js';
+import { BoardRealtimeClient } from './api/board-realtime-client.js';
 
 let lastOperation = null;
 
@@ -11,7 +12,6 @@ async function init() {
 }
 
 function setupEventListeners() {
-    // Botones de la barra de herramientas: solo cambian el modo de interacción.
     document.getElementById('addRectBtn').addEventListener('click', () => {
         BoardView.resetInteractionState();
         BoardState.setInteractionMode('ADD_RECTANGLE');
@@ -27,7 +27,7 @@ function setupEventListeners() {
     document.getElementById('connectBtn').addEventListener('click', () => {
         BoardView.resetInteractionState();
         BoardState.setInteractionMode('ADD_CONNECTOR');
-        showStatus('Haz clic en el elemento de origen y luego en el elemento destino', 'INFO');
+        showStatus('Haz clic en el origen y luego en el destino', 'INFO');
     });
 
     document.getElementById('deleteBtn').addEventListener('click', () => {
@@ -35,10 +35,11 @@ function setupEventListeners() {
         if (selectedId) {
             BoardState.removeElement(selectedId);
             BoardView.render();
+            // Propagar eliminación desde el botón
+            BoardRealtimeClient.publish('ELEMENT_DELETED', { id: selectedId });
         }
     });
 
-    // Botones de API REST
     document.getElementById('newBoardBtn').addEventListener('click', async () => {
         const name = document.getElementById('boardName').value || "Tablero Nuevo";
         await executeRemoteOperation('CREATE', () => BoardApiClient.createBoard(name));
@@ -66,7 +67,7 @@ function setupEventListeners() {
 async function executeRemoteOperation(operationName, apiFunction) {
     showStatus('Comunicando con el servidor...', 'LOADING');
     document.getElementById('retryBtn').hidden = true;
-    
+
     try {
         const result = await apiFunction();
         if (operationName === 'CREATE' || operationName === 'LOAD') {
@@ -75,6 +76,9 @@ async function executeRemoteOperation(operationName, apiFunction) {
                 BoardState.setBoard(result);
                 document.getElementById('boardId').value = result.id;
                 BoardView.render();
+
+                // Conectar a WebSockets tras obtener el ID
+                BoardRealtimeClient.connect(result.id, handleRemoteEvent);
             }
         }
         showStatus(`Operación ${operationName} completada`, 'SUCCESS');
@@ -86,13 +90,31 @@ async function executeRemoteOperation(operationName, apiFunction) {
     }
 }
 
+function handleRemoteEvent(event) {
+    console.log("Evento recibido desde el servidor:", event);
+    const payload = event.payload;
+    switch(event.type) {
+        case 'ELEMENT_CREATED':
+        case 'CONNECTOR_CREATED':
+            BoardState.addElement(payload);
+            break;
+        case 'ELEMENT_MOVED':
+            BoardState.updateElementPosition(payload.id, payload.x, payload.y);
+            break;
+        case 'ELEMENT_DELETED':
+            BoardState.removeElement(payload.id);
+            break;
+    }
+    BoardView.render();
+}
+
 function showStatus(message, state) {
     const remoteBadge = document.getElementById('remoteStatus');
     const messageText = document.getElementById('message');
-    
+
     remoteBadge.textContent = state;
     messageText.textContent = message;
-    
+
     if (state === 'ERROR') remoteBadge.style.backgroundColor = '#ff6b6b';
     else if (state === 'SUCCESS') remoteBadge.style.backgroundColor = '#20b2aa';
     else remoteBadge.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';

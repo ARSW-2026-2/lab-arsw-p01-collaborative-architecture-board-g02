@@ -1,4 +1,5 @@
 import { BoardState } from '../state/board-state.js';
+import { BoardRealtimeClient } from '../api/board-realtime-client.js';
 
 // Obligatory Namespace for SVG elements:
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -28,9 +29,9 @@ export const BoardView = {
 
     render() {
         if (!svgContainer) return;
-        
+
         svgContainer.innerHTML = '';
-        
+
         const board = BoardState.getBoard();
         if (!board || !board.elements) return;
 
@@ -54,7 +55,7 @@ export const BoardView = {
                 } else if (el.type === 'TEXT') {
                     node = this.createTextNode(el, selectedId === el.id);
                 }
-                
+
                 if (node) {
                     svgContainer.appendChild(node);
                 }
@@ -69,14 +70,14 @@ export const BoardView = {
         rect.setAttribute('y', element.y);
         rect.setAttribute('width', element.width);
         rect.setAttribute('height', element.height);
-        
-        rect.setAttribute('fill', '#fef08a'); 
+
+        rect.setAttribute('fill', '#fef08a');
         rect.setAttribute('rx', '16'); // Bordes mucho más curvos y suaves
-        
+
         rect.setAttribute('stroke', isSelected ? '#d946ef' : '#fbbf24');
         rect.setAttribute('stroke-width', isSelected ? '4' : '2');
         rect.setAttribute('class', 'board-element');
-        
+
         rect.style.cursor = 'pointer';
         return rect;
     },
@@ -88,7 +89,7 @@ export const BoardView = {
         text.setAttribute('y', element.y + element.height / 2);
         text.setAttribute('text-anchor', 'middle');
         text.setAttribute('dominant-baseline', 'middle');
-        
+
         text.setAttribute('fill', isSelected ? '#d946ef' : '#334155');
         text.setAttribute('font-weight', 'bold');
         text.setAttribute('font-family', '"Nunito", "Comic Sans MS", sans-serif'); // Letra más casual
@@ -116,116 +117,138 @@ export const BoardView = {
         line.setAttribute('y1', y1);
         line.setAttribute('x2', x2);
         line.setAttribute('y2', y2);
-        
+
         line.setAttribute('stroke', '#8b5cf6');
         line.setAttribute('stroke-width', '4');
-        line.setAttribute('stroke-linecap', 'round'); 
+        line.setAttribute('stroke-linecap', 'round');
         return line;
     },
 
     setupInteractions() {
+        svgContainer.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+        svgContainer.addEventListener('pointermove', (e) => this.handlePointerMove(e));
+        svgContainer.addEventListener('pointerup', () => this.handlePointerUp());
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    },
 
-        svgContainer.addEventListener('pointerdown', (e) => {
-            const target = e.target;
-            const mode = BoardState.getInteractionMode();
+    //Manejadores de eventos
 
+    handlePointerDown(e) {
+        const target = e.target;
+        const mode = BoardState.getInteractionMode();
 
-            if (target === svgContainer) {
-                if (mode === 'ADD_RECTANGLE' || mode === 'ADD_TEXT') {
-
-                    const rect = svgContainer.getBoundingClientRect();
-                    const textValue = mode === 'ADD_TEXT'
-                        ? (prompt('Ingresa el texto de la tarjeta:') || 'Texto')
-                        : null;
-
-                    const newElement = {
-                        id: crypto.randomUUID(),
-                        type: mode === 'ADD_RECTANGLE' ? 'RECTANGLE' : 'TEXT',
-                        x: e.clientX - rect.left,
-                        y: e.clientY - rect.top,
-                        width: mode === 'ADD_RECTANGLE' ? 140 : 120,
-                        height: mode === 'ADD_RECTANGLE' ? 80 : 40,
-                        text: textValue
-                    };
-
-                    BoardState.addElement(newElement);
-                    BoardState.setInteractionMode('SELECT');
-                    this.render();
-                } else {
-
-                    BoardState.setSelectedElementId(null);
-                    connectorSourceId = null;
-                    this.render();
-                }
-                return;
-            }
-
-
+        if (target === svgContainer) {
+            this.handleBackgroundClick(e, mode);
+        } else {
             const elementId = target.getAttribute('id');
             if (elementId && target.classList.contains('board-element')) {
-                if (mode === 'SELECT') {
-
-                    BoardState.setSelectedElementId(elementId);
-                    isDragging = true;
-                    draggedElementId = elementId;
-
-                    // Calcular offset para un drag suave
-                    const el = BoardState.getBoard().elements.find(e => e.id === elementId);
-                    if (el) {
-                        dragOffset.x = e.clientX - el.x;
-                        dragOffset.y = e.clientY - el.y;
-                    }
-                    this.render();
-
-                } else if (mode === 'ADD_CONNECTOR') {
-                    if (!connectorSourceId) {
-                        connectorSourceId = elementId;
-                        BoardState.setSelectedElementId(elementId);
-                        this.render();
-                    } else if (connectorSourceId !== elementId) {
-                        const newConnector = {
-                            id: crypto.randomUUID(),
-                            type: 'CONNECTOR',
-                            sourceId: connectorSourceId,
-                            targetId: elementId
-                        };
-                        BoardState.addElement(newConnector);
-                        connectorSourceId = null;
-                        BoardState.setInteractionMode('SELECT');
-                        this.render();
-                    }
-                }
+                this.handleElementClick(e, elementId, mode);
             }
-        });
+        }
+    },
 
-        svgContainer.addEventListener('pointermove', (e) => {
-            if (!isDragging || !draggedElementId) return;
+    handleBackgroundClick(e, mode) {
+        if (mode === 'ADD_RECTANGLE' || mode === 'ADD_TEXT') {
+            const rect = svgContainer.getBoundingClientRect();
+            const textValue = mode === 'ADD_TEXT'
+                ? (prompt('Ingresa el texto de la tarjeta:') || 'Texto')
+                : null;
 
-            const mode = BoardState.getInteractionMode();
-            if (mode === 'SELECT') {
-                const newX = e.clientX - dragOffset.x;
-                const newY = e.clientY - dragOffset.y;
-                BoardState.updateElementPosition(draggedElementId, newX, newY);
+            const newElement = {
+                id: crypto.randomUUID(),
+                type: mode === 'ADD_RECTANGLE' ? 'RECTANGLE' : 'TEXT',
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                width: mode === 'ADD_RECTANGLE' ? 140 : 120,
+                height: mode === 'ADD_RECTANGLE' ? 80 : 40,
+                text: textValue
+            };
+
+            BoardState.addElement(newElement);
+            BoardState.setInteractionMode('SELECT');
+            this.render();
+            BoardRealtimeClient.publish('ELEMENT_CREATED', newElement);
+
+        } else {
+            BoardState.setSelectedElementId(null);
+            connectorSourceId = null;
+            this.render();
+        }
+    },
+
+    handleElementClick(e, elementId, mode) {
+        if (mode === 'SELECT') {
+            BoardState.setSelectedElementId(elementId);
+            isDragging = true;
+            draggedElementId = elementId;
+
+            const el = BoardState.getBoard().elements.find(el => el.id === elementId);
+            if (el) {
+                dragOffset.x = e.clientX - el.x;
+                dragOffset.y = e.clientY - el.y;
+            }
+            this.render();
+
+        } else if (mode === 'ADD_CONNECTOR') {
+            if (!connectorSourceId) {
+                connectorSourceId = elementId;
+                BoardState.setSelectedElementId(elementId);
                 this.render();
+            } else if (connectorSourceId !== elementId) {
+                const newConnector = {
+                    id: crypto.randomUUID(),
+                    type: 'CONNECTOR',
+                    sourceId: connectorSourceId,
+                    targetId: elementId
+                };
+
+                BoardState.addElement(newConnector);
+                connectorSourceId = null;
+                BoardState.setInteractionMode('SELECT');
+                this.render();
+                BoardRealtimeClient.publish('CONNECTOR_CREATED', newConnector);
             }
-        });
+        }
+    },
 
-        svgContainer.addEventListener('pointerup', () => {
-            isDragging = false;
-            draggedElementId = null;
-        });
+    handlePointerMove(e) {
+        if (!isDragging || !draggedElementId) return;
 
+        const mode = BoardState.getInteractionMode();
+        if (mode === 'SELECT') {
+            const newX = e.clientX - dragOffset.x;
+            const newY = e.clientY - dragOffset.y;
+            BoardState.updateElementPosition(draggedElementId, newX, newY);
+            this.render();
+        }
+    },
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    const selectedId = BoardState.getSelectedElementId();
-                    if (selectedId) {
-                        BoardState.removeElement(selectedId);
-                        this.render();
-                    }
+    handlePointerUp() {
+        if (isDragging && draggedElementId) {
+            const el = BoardState.getBoard().elements.find(e => e.id === draggedElementId);
+            if (el) {
+                BoardRealtimeClient.publish('ELEMENT_MOVED', {
+                    id: el.id,
+                    x: el.x,
+                    y: el.y
+                });
+            }
+        }
+        isDragging = false;
+        draggedElementId = null;
+    },
+
+    handleKeyDown(e) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                const selectedId = BoardState.getSelectedElementId();
+                if (selectedId) {
+                    BoardState.removeElement(selectedId);
+                    this.render();
+                    BoardRealtimeClient.publish('ELEMENT_DELETED', { id: selectedId });
                 }
             }
-        });
+        }
     }
 };
+
