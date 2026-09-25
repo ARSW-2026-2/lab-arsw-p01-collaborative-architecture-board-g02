@@ -1,5 +1,4 @@
 import { BoardState } from '../state/board-state.js';
-import { BoardRealtimeClient } from '../api/board-realtime-client.js';
 
 // Obligatory Namespace for SVG elements:
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -9,10 +8,15 @@ let draggedElementId = null;
 let dragOffset = { x: 0, y: 0 };
 let connectorSourceId = null;
 
+let notifyLocalChange = () => {};
+
 export const BoardView = {
 
-    initialize(svgElementId) {
+    initialize(svgElementId, onLocalChange) {
         svgContainer = document.getElementById(svgElementId);
+        if (onLocalChange) {
+            notifyLocalChange = onLocalChange;
+        }
         if (svgContainer) {
             this.setupInteractions();
         }
@@ -167,7 +171,7 @@ export const BoardView = {
             BoardState.addElement(newElement);
             BoardState.setInteractionMode('SELECT');
             this.render();
-            BoardRealtimeClient.publish('ELEMENT_CREATED', newElement);
+            notifyLocalChange('ELEMENT_CREATED', newElement);
 
         } else {
             BoardState.setSelectedElementId(null);
@@ -206,7 +210,7 @@ export const BoardView = {
                 connectorSourceId = null;
                 BoardState.setInteractionMode('SELECT');
                 this.render();
-                BoardRealtimeClient.publish('CONNECTOR_CREATED', newConnector);
+                notifyLocalChange('CONNECTOR_CREATED', newConnector);
             }
         }
     },
@@ -227,7 +231,7 @@ export const BoardView = {
         if (isDragging && draggedElementId) {
             const el = BoardState.getBoard().elements.find(e => e.id === draggedElementId);
             if (el) {
-                BoardRealtimeClient.publish('ELEMENT_MOVED', {
+                notifyLocalChange('ELEMENT_MOVED', {
                     id: el.id,
                     x: el.x,
                     y: el.y
@@ -245,10 +249,9 @@ export const BoardView = {
                 if (selectedId) {
                     BoardState.removeElement(selectedId);
                     this.render();
-                    BoardRealtimeClient.publish('ELEMENT_DELETED', { id: selectedId });
+                    notifyLocalChange('ELEMENT_DELETED', { id: selectedId });
                 }
             }
         }
     }
 };
-

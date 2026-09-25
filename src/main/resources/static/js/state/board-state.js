@@ -38,13 +38,19 @@ export const BoardState = {
     //Pures Operations:
     addElement: (element) => {
         if (state.board) {
-            state.board.elements.push(element);
+            const exists = state.board.elements.some(e => e.id === element.id);
+            if (!exists) {
+                state.board.elements.push(element);
+            }
         }
     },
 
     removeElement: (elementId) => {
         if (state.board) {
-            state.board.elements = state.board.elements.filter(e => e.id !== elementId);
+            // Al borrar un elemento también se borran los conectores que dependían de él.
+            state.board.elements = state.board.elements.filter(e =>
+                e.id !== elementId && e.sourceId !== elementId && e.targetId !== elementId
+            );
             if (state.selectedElementId === elementId) {
                 state.selectedElementId = null;
             }
@@ -57,6 +63,15 @@ export const BoardState = {
             if (el && el.type !== 'CONNECTOR') { //The connectors do not move on their own.
                 el.x = newX;
                 el.y = newY;
+            }
+        }
+    },
+
+    updateElement: (elementId, changes) => {
+        if (state.board) {
+            const index = state.board.elements.findIndex(e => e.id === elementId);
+            if (index !== -1) {
+                state.board.elements[index] = { ...state.board.elements[index], ...changes };
             }
         }
     }
