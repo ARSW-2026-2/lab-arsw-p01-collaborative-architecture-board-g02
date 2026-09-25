@@ -6,9 +6,14 @@ import { BoardRealtimeClient } from './api/board-realtime-client.js';
 let lastOperation = null;
 
 async function init() {
-    BoardView.initialize('boardCanvas');
+    BoardView.initialize('boardCanvas', publishLocalChange);
     setupEventListeners();
     showStatus('Listo para empezar', 'IDLE');
+}
+
+// Único puente entre BoardView (cambios locales) y BoardRealtimeClient (STOMP).
+function publishLocalChange(type, payload) {
+    BoardRealtimeClient.publish(type, payload);
 }
 
 function setupEventListeners() {
@@ -100,6 +105,9 @@ function handleRemoteEvent(event) {
             break;
         case 'ELEMENT_MOVED':
             BoardState.updateElementPosition(payload.id, payload.x, payload.y);
+            break;
+        case 'ELEMENT_UPDATED':
+            BoardState.updateElement(payload.id, payload);
             break;
         case 'ELEMENT_DELETED':
             BoardState.removeElement(payload.id);
